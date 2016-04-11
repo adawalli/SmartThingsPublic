@@ -70,28 +70,29 @@ private getHostAddress() {
     }
 
     log.debug "Using IP: $ip and port: $port for device: ${device.id}"
+    def form_ip=convertHexToIP(ip)
+    def form_port=convertHexToInt(port)
+    log.debug "Format: ${form_ip} Port: ${form_port}"
     return convertHexToIP(ip) + ":" + convertHexToInt(port)
 }
 
 def pianoCmd(String path) {
 	log.debug "pianoCmd: Executing ${path}"
+    def hosthex = convertIPtoHex(pianoIP).toUpperCase() //thanks to @foxxyben for catching this
+    def porthex = convertPortToHex(pianoPort).toUpperCase()
+    device.deviceNetworkId = "$hosthex:$porthex" 
 	new physicalgraph.device.HubAction(
         method: "GET",
         path: path,
         headers: [
-            HOST: getHostAddress(),
+            HOST: pianoIP +":" + pianoPort,//getHostAddress(),
         ],
     )
 }
 
 // handle commands
 def on() {
-	log.debug "Executing 'on'"
-    def host = pianoIP
-    def hosthex = convertIPtoHex(pianoIP).toUpperCase() //thanks to @foxxyben for catching this
-    def porthex = convertPortToHex(pianoPort).toUpperCase()
-    device.deviceNetworkId = "$hosthex:$porthex" 
-
+	log.debug "Executing 'on'"	
 	return pianoCmd("/cgi-bin/midi9cgi?power=on&get=ack")
 }
 
