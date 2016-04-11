@@ -29,8 +29,10 @@ metadata {
 	tiles(scale:2) {
 		multiAttributeTile(name:"piano", type:"generic", width:6, height:4) {
 		tileAttribute("device.switch", key: "PRIMARY_CONTROL") {
-			attributeState( "on", label: '${name}', icon:"st.switches.switch.on", action: "switch.on", nextState:"turningOn")
-            attributeState( "off", label: '${name}', icon:"st.switches.switch.off", action: "switch.off", nextState:"turningOff")
+            attributeState "on", label:'${name}', action:"switch.off", icon:"st.switches.switch.on", backgroundColor:"#79b821", nextState:"turningOff"
+            attributeState "off", label:'${name}', action:"switch.on", icon:"st.switches.switch.off", backgroundColor:"#ffffff", nextState:"turningOn"
+            attributeState "turningOn", label:'${name}', action:"switch.off", icon:"st.switches.switch.on", backgroundColor:"#79b821", nextState:"turningOff"
+            attributeState "turningOff", label:'${name}', action:"switch.on", icon:"st.switches.switch.off", backgroundColor:"#ffffff", nextState:"turningOn"
     	}
   }
 
@@ -73,7 +75,8 @@ def pianoCmd(String path) {
 
 // handle commands
 def on() {
-	log.debug "Executing 'on'"	
+	log.debug "Executing 'on'"
+    sendEvent(name: "switch", value: "on",isStateChange: true)
 	return pianoCmd("/cgi-bin/midi9cgi?power=on&get=ack")
 }
 
