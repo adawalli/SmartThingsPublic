@@ -18,7 +18,10 @@ metadata {
 		capability "Switch"
 		capability "Switch Level"
 	}
-
+     preferences {
+         input("pianoIP", "text", title:"Piano IP Address", description: "Please Enter Piano IP Address",defaultValue: "192.168.3.60", required: false, displayDuringSetup: true)
+         input("pianoPort", "text", title:"Piano Port", description: "Please enter your Piano's Port", defaultValue: 80 , required: false, displayDuringSetup: true)
+	}
 	simulator {
 		// TODO: define status and reply messages here
 	}
@@ -39,9 +42,35 @@ metadata {
 // parse events into attributes
 def parse(String description) {
 	log.debug "Parsing '${description}'"
-	// TODO: handle 'switch' attribute
-	// TODO: handle 'level' attribute
+    def msg = parseLanMessage(description)
 
+    def headersAsString = msg.header // => headers as a string
+    def headerMap = msg.headers      // => headers as a Map
+    def body = msg.body              // => request body as a string
+    def status = msg.status          // => http status code of the response
+    def json = msg.json              // => any JSON included in response body, as a data structure of lists and maps
+    def xml = msg.xml                // => any XML included in response body, as a document tree structure
+    def data = msg.data              // => either JSON or XML in response body (whichever is specified by content-type header
+	log.debug "Description: ${msg}"
+}
+
+// gets the address of the device
+private getHostAddress() {
+    def ip = getDataValue("ip")
+    def port = getDataValue("port")
+	log.debug "**IP**: ${ip} PORT: ${port}"
+    if (!ip || !port) {
+        def parts = device.deviceNetworkId.split(":")
+        if (parts.length == 2) {
+            ip = parts[0]
+            port = parts[1]
+        } else {
+            log.warn "Can't figure out ip and port for device: ${device.id}"
+        }
+    }
+
+    log.debug "Using IP: $ip and port: $port for device: ${device.id}"
+    return convertHexToIP(ip) + ":" + convertHexToInt(port)
 }
 
 def pianoCmd(String path) {
@@ -50,7 +79,7 @@ def pianoCmd(String path) {
         method: "GET",
         path: path,
         headers: [
-            HOST: "192.168.3.200",
+            HOST: getHostAddress(),
         ],
     )
 }
@@ -58,6 +87,10 @@ def pianoCmd(String path) {
 // handle commands
 def on() {
 	log.debug "Executing 'on'"
+    def host = pianoIP
+    def hosthex = convertIPtoHex(pianoIP).toUpperCase() //thanks to @foxxyben for catching this
+    def porthex = convertPortToHex(pianoPort).toUpperCase()
+    device.deviceNetworkId = "$hosthex:$porthex" 
 
 	return pianoCmd("/cgi-bin/midi9cgi?power=on&get=ack")
 }
@@ -71,4 +104,25 @@ def off() {
 def setLevel() {
 	log.debug "Executing 'setLevel'"
 	// TODO: handle 'setLevel' command
+}
+
+private Integer convertHexToInt(hex) {
+    return Integer.parseInt(hex,16)
+}
+
+private String convertHexToIP(hex) {
+    return [convertHexToInt(hex[0..1]),convertHexToInt(hex[2..3]),convertHexToInt(hex[4..5]),convertHexToInt(hex[6..7])].join(".")
+}
+
+private String convertIPtoHex(ipAddress) { 
+    String hex = ipAddress.tokenize( '.' ).collect {  String.format( '%02x', it.toInteger() ) }.join()
+    log.debug "IP address entered is $ipAddress and the converted hex code is $hex"
+    return hex
+
+}
+
+private String convertPortToHex(port) {
+	String hexport = port.toString().format( '%04x', port.toInteger() )
+    log.debug hexport
+    return hexport
 }
