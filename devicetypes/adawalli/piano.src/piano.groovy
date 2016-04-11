@@ -54,33 +54,14 @@ def parse(String description) {
 	log.debug "Description: ${msg}"
 }
 
-// gets the address of the device
-private getHostAddress() {
-    def ip = getDataValue("ip")
-    def port = getDataValue("port")
-	log.debug "**IP**: ${ip} PORT: ${port}"
-    if (!ip || !port) {
-        def parts = device.deviceNetworkId.split(":")
-        if (parts.length == 2) {
-            ip = parts[0]
-            port = parts[1]
-        } else {
-            log.warn "Can't figure out ip and port for device: ${device.id}"
-        }
-    }
-
-    log.debug "Using IP: $ip and port: $port for device: ${device.id}"
-    def form_ip=convertHexToIP(ip)
-    def form_port=convertHexToInt(port)
-    log.debug "Format: ${form_ip} Port: ${form_port}"
-    return convertHexToIP(ip) + ":" + convertHexToInt(port)
-}
-
 def pianoCmd(String path) {
 	log.debug "pianoCmd: Executing ${path}"
-    def hosthex = convertIPtoHex(pianoIP).toUpperCase() //thanks to @foxxyben for catching this
-    def porthex = convertPortToHex(pianoPort).toUpperCase()
-    device.deviceNetworkId = "$hosthex:$porthex" 
+    if (!device.deviceNetworkId.contains(":"))
+    {
+        def hosthex = convertIPtoHex(pianoIP).toUpperCase() //thanks to @foxxyben for catching this
+        def porthex = convertPortToHex(pianoPort).toUpperCase()
+        device.deviceNetworkId = "$hosthex:$porthex" 
+    }
 	new physicalgraph.device.HubAction(
         method: "GET",
         path: path,
@@ -99,6 +80,7 @@ def on() {
 def off() {
 	log.debug "Executing 'off'"
     sendEvent(name: "switch", value: "off",isStateChange: true)
+    return pianoCmd("/cgi-bin/midi9cgi?power=standby&get=ack")
 	// TODO: handle 'off' command
 }
 
