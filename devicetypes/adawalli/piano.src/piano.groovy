@@ -17,6 +17,7 @@ metadata {
 	definition (name: "Piano", namespace: "adawalli", author: "Adam Wallis") {
 		capability "Switch"
 		capability "Switch Level"
+        capability "Lock"
 	}
      preferences {
          input("pianoIP", "text", title:"Piano IP Address", description: "Please Enter Piano IP Address",defaultValue: "192.168.3.60", required: false, displayDuringSetup: true)
@@ -27,25 +28,33 @@ metadata {
 	}
 
 	tiles(scale:2) {
-		multiAttributeTile(name:"piano", type:"generic", width:6, height:4) {
-		tileAttribute("device.switch", key: "PRIMARY_CONTROL") {
-            attributeState "on", label:'${name}', action:"switch.off", icon:"st.switches.switch.on", backgroundColor:"#79b821", nextState:"turningOff"
-            attributeState "off", label:'${name}', action:"switch.on", icon:"st.switches.switch.off", backgroundColor:"#ffffff", nextState:"turningOn"
-            attributeState "turningOn", label:'${name}', action:"switch.off", icon:"st.switches.switch.on", backgroundColor:"#79b821", nextState:"turningOff"
-            attributeState "turningOff", label:'${name}', action:"switch.on", icon:"st.switches.switch.off", backgroundColor:"#ffffff", nextState:"turningOn"
-    	}
-  }
+		multiAttributeTile(name:"piano", type:"lighting", width:6, height:4) {
+            tileAttribute("device.switch", key: "PRIMARY_CONTROL") {
+                attributeState "on", label:'${name}', action:"switch.off", icon:"st.Electronics.electronics11", backgroundColor:"#79b821", nextState:"turningOff"
+                attributeState "off", label:'${name}', action:"switch.on", icon:"st.Electronics.electronics11", backgroundColor:"#ffffff", nextState:"turningOn"
+                attributeState "turningOn", label:'${name}', action:"switch.off", icon:"st.Electronics.electronics11", backgroundColor:"#79b821", nextState:"turningOff"
+                attributeState "turningOff", label:'${name}', action:"switch.on", icon:"st.Electronics.electronics11", backgroundColor:"#ffffff", nextState:"turningOn"
+            }
+  		}
+        
+		controlTile("levelSliderControl", "device.level", "slider", height: 1, width:6, inactiveLabel: false, range:"(1..10)", decoration: "flat") {
+            state "level", action:"switch level.setLevel"
+		}
+        
+        standardTile("play", "device.lock", width: 6, height: 3) {
+            state "locked", icon:"st.Entertainment.entertainment2", action:"lock.unlock", backgroundColor:"#53a7c0"
+            state "unlocked", icon:"st.Entertainment.entertainment2", action:"lock.lock", backgroundColor:"#ffffff"
+		}
 
 	main "piano"
-	details "piano"
+	details (["piano","levelSliderControl", "play"])
 	}
 }
 
 // parse events into attributes
 def parse(String description) {
-	log.debug "Parsing '${description}'"
     def msg = parseLanMessage(description)
-
+	def evt = null
     def headersAsString = msg.header // => headers as a string
     def headerMap = msg.headers      // => headers as a Map
     def body = msg.body              // => request body as a string
@@ -53,7 +62,35 @@ def parse(String description) {
     def json = msg.json              // => any JSON included in response body, as a data structure of lists and maps
     def xml = msg.xml                // => any XML included in response body, as a document tree structure
     def data = msg.data              // => either JSON or XML in response body (whichever is specified by content-type header
-	log.debug "Description: ${msg}"
+	//log.debug "Description: ${msg}"
+    def lastStatus = device.latestValue("switch")
+    if (lastStatus == "turningOn")
+    {
+    	if (headersAsString?.contains("200"))
+        {
+            log.debug "Successfully turned on piano!"
+            evt = createEvent(name: "switch", value: "on", isStateChange: true)
+        }
+        else
+        {
+        	evt = createEvent(name: "switch", value: "off", isStateChange: true)
+        }  
+    } 
+    else if (lastStatus == "turningOff")
+    {
+    	if (headersAsString?.contains("200"))
+        {
+            log.debug "Successfully turned off piano!"
+            evt = createEvent(name: "switch", value: "off", isStateChange: true)
+        }
+        else
+        {
+        	evt = createEvent(name: "switch", value: "on", isStateChange: true)
+        } 
+    }
+    else
+    	log.warn "Unknown State"
+    evt
 }
 
 def pianoCmd(String path) {
@@ -76,28 +113,30 @@ def pianoCmd(String path) {
 // handle commands
 def on() {
 	log.debug "Executing 'on'"
-    sendEvent(name: "switch", value: "on",isStateChange: true)
+    sendEvent(name: "switch", value: "turningOn",isStateChange: true)
 	return pianoCmd("/cgi-bin/midi9cgi?power=on&get=ack")
 }
 
 def off() {
 	log.debug "Executing 'off'"
-    sendEvent(name: "switch", value: "off",isStateChange: true)
+    sendEvent(name: "switch", value: "turningOff",isStateChange: true)
     return pianoCmd("/cgi-bin/midi9cgi?power=standby&get=ack")
 	// TODO: handle 'off' command
 }
 
-def setLevel() {
-	log.debug "Executing 'setLevel'"
+def setLevel(val) {
+	log.debug "Executing 'setLevel' ${val}"
 	// TODO: handle 'setLevel' command
 }
 
-private Integer convertHexToInt(hex) {
-    return Integer.parseInt(hex,16)
-}
+def lock() {
+	log.debug "Executing PLAY"
+    sendEvent(name: "lock", value: "locked",isStateChange: true)
+}	
 
-private String convertHexToIP(hex) {
-    return [convertHexToInt(hex[0..1]),convertHexToInt(hex[2..3]),convertHexToInt(hex[4..5]),convertHexToInt(hex[6..7])].join(".")
+def unlock() {
+	log.debug "Executing Pause"
+    sendEvent(name: "lock", value: "unlocked",isStateChange: true)
 }
 
 private String convertIPtoHex(ipAddress) { 
