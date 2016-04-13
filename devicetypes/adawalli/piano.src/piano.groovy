@@ -130,13 +130,15 @@ def setLevel(val) {
 }
 
 def lock() {
-	log.debug "Executing PLAY"
+	log.debug "Executing Pause"
     sendEvent(name: "lock", value: "locked",isStateChange: true)
+    return pianoCmd("/cgi-bin/midi9cgi?get=ack&navigation=pause")
 }	
 
 def unlock() {
-	log.debug "Executing Pause"
+	log.debug "Executing Play"
     sendEvent(name: "lock", value: "unlocked",isStateChange: true)
+    return pianoCmd("/cgi-bin/midi9cgi?get=ack&navigation=play")
 }
 
 private String convertIPtoHex(ipAddress) { 
