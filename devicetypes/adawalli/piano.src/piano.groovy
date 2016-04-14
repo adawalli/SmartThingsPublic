@@ -42,8 +42,10 @@ metadata {
 		}
         
         standardTile("play", "device.lock", width: 6, height: 3) {
-            state "locked", icon:"st.Entertainment.entertainment2", action:"lock.unlock", backgroundColor:"#53a7c0"
-            state "unlocked", icon:"st.Entertainment.entertainment2", action:"lock.lock", backgroundColor:"#ffffff"
+            state "locked", icon:"st.Entertainment.entertainment2", action:"lock.unlock", backgroundColor:"#ffffff"
+            state "locking", icon:"st.Entertainment.entertainment2", action:"lock.unlock", backgroundColor:"#ffffff"
+            state "unlocked", icon:"st.Entertainment.entertainment2", action:"lock.lock", backgroundColor:"#53a7c0"
+            state "unlocking", icon:"st.Entertainment.entertainment2", action:"lock.lock", backgroundColor:"#53a7c0"
 		}
 
 	main "piano"
@@ -54,7 +56,7 @@ metadata {
 // parse events into attributes
 def parse(String description) {
     def msg = parseLanMessage(description)
-	def evt = null
+	def evt = []
     def headersAsString = msg.header // => headers as a string
     def headerMap = msg.headers      // => headers as a Map
     def body = msg.body              // => request body as a string
@@ -63,17 +65,18 @@ def parse(String description) {
     def xml = msg.xml                // => any XML included in response body, as a document tree structure
     def data = msg.data              // => either JSON or XML in response body (whichever is specified by content-type header
 	//log.debug "Description: ${msg}"
+    log.debug "Entered Parse"
     def lastStatus = device.latestValue("switch")
     if (lastStatus == "turningOn")
     {
     	if (headersAsString?.contains("200"))
         {
             log.debug "Successfully turned on piano!"
-            evt = createEvent(name: "switch", value: "on", isStateChange: true)
+            evt << createEvent(name: "switch", value: "on", isStateChange: true)
         }
         else
         {
-        	evt = createEvent(name: "switch", value: "off", isStateChange: true)
+        	evt << createEvent(name: "switch", value: "off", isStateChange: true)
         }  
     } 
     else if (lastStatus == "turningOff")
@@ -81,15 +84,38 @@ def parse(String description) {
     	if (headersAsString?.contains("200"))
         {
             log.debug "Successfully turned off piano!"
-            evt = createEvent(name: "switch", value: "off", isStateChange: true)
+            evt << createEvent(name: "switch", value: "off", isStateChange: true)
         }
         else
         {
-        	evt = createEvent(name: "switch", value: "on", isStateChange: true)
+        	evt << createEvent(name: "switch", value: "on", isStateChange: true)
         } 
     }
-    else
-    	log.warn "Unknown State"
+    lastStatus = device.latestValue("lock")
+    if (lastStatus == "locking")
+    {
+    	if (headersAsString?.contains("200"))
+        {
+            log.debug "Successfully Paused piano!"
+            evt << createEvent(name: "lock", value: "locked", isStateChange: true)
+        }
+        else
+        {
+        	evt << createEvent(name: "lock", value: "unlocked", isStateChange: true)
+        } 
+    }
+    else if (lastStatus == "unlocking")
+    {
+    	if (headersAsString?.contains("200"))
+        {
+            log.debug "Successfully Played piano!"
+            evt << createEvent(name: "lock", value: "unlocked", isStateChange: true)
+        }
+        else
+        {
+        	evt << createEvent(name: "lock", value: "locked", isStateChange: true)
+        } 
+    }
     evt
 }
 
@@ -118,15 +144,18 @@ def on() {
 }
 
 def off() {
+	def cmds = []
 	log.debug "Executing 'off'"
     sendEvent(name: "switch", value: "turningOff",isStateChange: true)
-    return pianoCmd("/cgi-bin/midi9cgi?power=standby&get=ack")
+    cmds << lock()
+    cmds << pianoCmd("/cgi-bin/midi9cgi?power=standby&get=ack")
 	// TODO: handle 'off' command
 }
 
 def setLevel(val) {
 	def valAsInt = val.intValue()
     def idx
+    def cmds =[]
 	def playlists = [
     				 "Playlist_1.pls",
                      "Stephanie%20list.pls"
@@ -137,19 +166,25 @@ def setLevel(val) {
     else
     	idx = valAsInt
     log.debug "Playlist: ${playlists[idx]}"
+    if (device.latestValue("switch")=="off")
+    	cmds << on()
 	// TODO: handle 'setLevel' command
-    return pianoCmd("/cgi-bin/midi9cgi?playlist=select&file=${playlists[idx]}&action=load&get=ack&navigation=play")
+    cmds << pianoCmd("/cgi-bin/midi9cgi?playlist=select&file=${playlists[idx]}&action=load&get=ack")
+    cmds << unlock()
+    return cmds
 }
 
 def lock() {
 	log.debug "Executing Pause"
-    sendEvent(name: "lock", value: "locked",isStateChange: true)
+    //sendEvent(name: "lock", value: "locked",isStateChange: true)
+    sendEvent(name: "lock", value: "locking",isStateChange: true)
     return pianoCmd("/cgi-bin/midi9cgi?get=ack&navigation=pause")
 }	
 
 def unlock() {
 	log.debug "Executing Play"
-    sendEvent(name: "lock", value: "unlocked",isStateChange: true)
+    //sendEvent(name: "lock", value: "unlocked",isStateChange: true)
+    sendEvent(name: "lock", value: "unlocking",isStateChange: true)
     return pianoCmd("/cgi-bin/midi9cgi?get=ack&navigation=play")
 }
 
