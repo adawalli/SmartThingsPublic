@@ -125,8 +125,20 @@ def off() {
 }
 
 def setLevel(val) {
-	log.debug "Executing 'setLevel' ${val}"
+	def valAsInt = val.intValue()
+    def idx
+	def playlists = [
+    				 "Playlist_1.pls",
+                     "Stephanie%20list.pls"
+                    ]
+	log.debug "Executing 'setLevel' ${valAsInt}"
+    if (valAsInt >= playlists.size())
+    	idx = playlists.size()-1
+    else
+    	idx = valAsInt
+    log.debug "Playlist: ${playlists[idx]}"
 	// TODO: handle 'setLevel' command
+    return pianoCmd("/cgi-bin/midi9cgi?playlist=select&file=${playlists[idx]}&action=load&get=ack&navigation=play")
 }
 
 def lock() {
