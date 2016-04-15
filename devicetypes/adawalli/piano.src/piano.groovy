@@ -161,7 +161,6 @@ def on() {
 	def cmds = []
 	log.debug "Executing 'on'"
     sendEvent(name: "switch", value: "turningOn",isStateChange: true)
-    //cmds << "/cgi-bin/midi9cgi?power=on&get=ack"
     cmds << "on"
 	return pianoCmd(cmds)
 }
@@ -171,10 +170,8 @@ def off() {
 	log.debug "Executing 'off'"
     sendEvent(name: "switch", value: "turningOff",isStateChange: true)
     sendEvent(name: "lock", value: "locking",isStateChange: true)
-    //cmds << pianoCmd("/cgi-bin/midi9cgi?power=standby&get=ack")
     cmds << "off"
     return pianoCmd(cmds)
-	// TODO: handle 'off' command
 }
 
 def setLevel(val) {
@@ -184,7 +181,7 @@ def setLevel(val) {
    
 	def playlists = [
     				 "Playlist_1.pls",
-                     "Stephanie%20list.pls"
+                     "Stephanie list.pls"
                     ]
 	log.debug "Executing 'setLevel' ${valAsInt}"
     if (valAsInt >= playlists.size())
@@ -193,21 +190,16 @@ def setLevel(val) {
     	idx = valAsInt
     log.debug "Playlist: ${playlists[idx]}"
     if (device.latestValue("switch")!="on")
-    	cmds << "on" //on()
-	// TODO: handle 'setLevel' command
-    //cmds << pianoCmd("/cgi-bin/midi9cgi?playlist=select&file=${playlists[idx]}&action=load&get=ack")
-    //def playlistMap = [playlist: playlists[idx]]
-    cmds << [file: playlists[idx], playlist: "select", action: "load", navigation: "play"]
-    //cmds << unlock()
+    	cmds << "on"
+    cmds << [playlist: "select",file: playlists[idx], action: "load"]
+    cmds << "play"
     return pianoCmd(cmds)
 }
 
 def lock() {
 	def cmds =[]
 	log.debug "Executing Pause"
-    //sendEvent(name: "lock", value: "locked",isStateChange: true)
     sendEvent(name: "lock", value: "locking",isStateChange: true)
-    //return pianoCmd("/cgi-bin/midi9cgi?get=ack&navigation=pause")
     cmds << "pause"
     return pianoCmd(cmds)
 }	
@@ -215,9 +207,7 @@ def lock() {
 def unlock() {
 	def cmds =[]
 	log.debug "Executing Play"
-    //sendEvent(name: "lock", value: "unlocked",isStateChange: true)
     sendEvent(name: "lock", value: "unlocking",isStateChange: true)
-    //return pianoCmd("/cgi-bin/midi9cgi?get=ack&navigation=play")
     cmds << "play"
     return pianoCmd(cmds)
 }
